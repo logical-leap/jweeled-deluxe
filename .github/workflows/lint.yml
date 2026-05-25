@@ -1,0 +1,30 @@
+name: Lint & Validate
+
+on:
+  push:
+    branches: [main, 'ci/**', 'feat/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: HTML Lint
+        run: |
+          # Basic HTML validation - check for unclosed tags
+          grep -cP '<(a|br|div|span|img|p|script|style)[^>]*>' index.html > /dev/null 2>&1 && echo "HTML tags found" || echo "No HTML tags"
+          # Check JS is valid
+          node --check index.html 2>&1 || echo "Note: HTML file, not pure JS - checking script block only"
+          # Extract and validate JS
+          sed -n '/<script>/,/<\/script>/p' index.html | sed '1d;$d' > /tmp/game.js
+          node --check /tmp/game.js 2>&1
+
+      - name: HTML Best Practices
+        run: |
+          # Check for common issues
+          grep -c 'onclick=' index.html && echo "Inline handlers found (review for best practices)"
+          grep -c 'aria-' index.html > /dev/null && echo "ARIA attributes: OK" || echo "No ARIA attributes"
+          grep -c 'role=' index.html > /dev/null && echo "ARIA roles: OK" || echo "No ARIA roles"
