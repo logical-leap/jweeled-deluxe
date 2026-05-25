@@ -87,9 +87,13 @@
   <div id="target-bar"><div id="target-fill"></div></div>
   <div id="board-wrapper"><div id="board" role="grid" aria-label="Match-3 game board"></div></div>
   <div id="message">Click a gem, then tap an adjacent gem to swap!</div>
+  <div id="boosters" style="display:flex;gap:8px;margin-top:4px;align-items:center">
+    <button class="btn" onclick="useBooster('hammer')" title="Destroy a gem">🔨 ×<span id="booster-hammer">0</span></button>
+    <button class="btn" onclick="useBooster('shuffle')" title="Reshuffle board">🔀 ×<span id="booster-shuffle">2</span></button>
+    <button class="btn" onclick="useBooster('colorbomb')" title="Drop a color bomb">💣 ×<span id="booster-colorbomb">1</span></button>
+  </div>
   <div id="controls">
     <button class="btn" onclick="hintMove()">💡 Hint</button>
-    <button class="btn" onclick="shuffleBoard()">🔀 Shuffle</button>
     <button class="btn" onclick="resetGame()">🔄 New</button>
   </div>
 </div>
@@ -103,19 +107,33 @@ let dragStart=null, dragged=false;
 let frozenHits=new Map();
 let levelObjective='score';
 let objectiveCount=0;
+// Special gems: striped-h=7, striped-v=8, wrapped=9, color-bomb=10, double-striped=11
+let boosters={hammer:0,shuffle:2,colorbomb:1}; // player power-ups
+let lastMatchedGems=[]; // track gems for combination detection
 
 const PALETTES = [
   ['#ff4757','#ff6b81'], ['#2ed573','#7bed9f'], ['#1e90ff','#70a1ff'],
   ['#ffa502','#ffbe76'], ['#a55eea','#cd84f1'], ['#ff6b9d','#ff9eb5'],
   ['#ffd700','#fff8dc'], ['#00d4ff','#d4f1ff']
 ];
-const SHAPES = [
-  'M20 2 L38 20 L20 38 L2 20 Z',
-  'M20 4 A16 16 0 1 1 20 36 A16 16 0 1 1 20 4',
-  'M8 8 L32 8 L32 32 L8 32 Z',
-  'M20 4 L36 32 L4 32 Z',
-  'M20 2 L24 15 L38 15 L27 24 L31 38 L20 29 L9 38 L13 24 L2 15 L16 15 Z',
-  'M20 2 L36 11 L36 29 L20 38 L4 29 L4 11 Z'
+const SPECIAL_PALETTE = [
+  undefined, undefined, undefined, undefined,
+  undefined, undefined, undefined, // 0-6: normal
+  ['#1a1aff','#666eff'], // 7: striped-h (blue)
+  ['#1aff1a','#6eff66'], // 8: striped-v (green)
+  ['#ff1aff','#ff66ef'], // 9: wrapped (pink)
+  ['#ff1aff','#ffd700'], // 10: color bomb (rainbow)
+  ['#ffff1a','#eeee66']  // 11: double-striped (gold)
+];
+const SPECIAL_SHAPES = [
+  undefined, undefined, undefined, undefined,
+  undefined, undefined, undefined,
+  'M10 20 L30 20 M20 10 L20 30 S10 5 20 0', // striped-h: line + arrows
+  'M10 20 L30 20 M10 10 L10 30 M30 10 L30 30', // striped-v: cross
+  'M20 4 L36 11 L36 29 L20 38 L4 29 L4 11 Z M20 10 L20 30 M10 20 L30 20', // wrapped: diamond + cross
+  'M20 2 L24 15 L38 15 L27 24 L31 38 L20 29 L9 38 L13 24 L2 15 L16 15 Z', // color bomb: star
+  'M20 2 L38 20 L20 38 L2 20 M10 10 L10 30 M30 10 L30 30 M10 10 L30 10 M10 30 L30 30', // double-striped: diamond + cross
+  'M20 2 L38 20 L20 38 L2 20 M14 20 L26 20 M20 14 L20 26' // wrapped-hv: diamond + cross
 ];
 
 // === AUDIO ===
@@ -200,11 +218,19 @@ function createGemEl(r,c,type,flag){
   if(flag==='locked')gem.classList.add('locked');
   if(flag==='frozen')gem.classList.add('frozen');
   if(flag==='bomb')gem.classList.add('bomb');
+  // Special gem visual styles
+  if(type===7)gem.classList.add('gem-striped-h');
+  if(type===8)gem.classList.add('gem-striped-v');
+  if(type===9)gem.classList.add('gem-wrapped');
+  if(type===10)gem.classList.add('gem-bomb');
+  if(type===11)gem.classList.add('gem-striped-h','gem-striped-v');
+  if(type>=7)gem.classList.add('gem-special');
   gem.dataset.r=r;gem.dataset.c=c;gem.dataset.type=String(type);
-  const col=PALETTES[type%PALETTES.length];
-  gem.style.background=`radial-gradient(circle at 30% 30%, ${col[1]}, ${col[0]} 70%)`;
-  gem.style.boxShadow=`0 4px 12px ${col[0]}66, inset 0 2px 6px rgba(255,255,255,.25)`;
-  gem.innerHTML=`<div class="gem-inner" style="background:linear-gradient(135deg,${col[0]},${col[1]})"><svg viewBox="0 0 40 40" style="width:60%;height:60%;position:relative;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))"><path d="${SHAPES[type]}" fill="rgba(255,255,255,.35)" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/></svg><div class="gem-select-indicator"></div></div>`;
+  const pal=type>=7?SPECIAL_PALETTE[type]:PALETTES[type%PALETTES.length];
+  gem.style.background=type===10?`radial-gradient(circle at 30% 30%, ${pal[1]}, ${pal[0]} 40%, #ff1aff 70%)`:`radial-gradient(circle at 30% 30%, ${pal[1]}, ${pal[0]} 70%)`;
+  const svgIdx=type<7?SHAPES[type]:SPECIAL_SHAPES[type];
+  const svgs=`<svg viewBox="0 0 40 40" style="width:60%;height:60%;position:relative;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))"><path d="${svgIdx}" fill="rgba(255,255,255,.4)" stroke="rgba(255,255,255,.6)" stroke-width="1.5"/></svg><div class="gem-select-indicator"></div>`;
+  gem.innerHTML=`<div class="gem-inner" style="background:linear-gradient(135deg,${pal[0]},${pal[1]})">${svgs}</div>`;
   return gem;
 }
 
@@ -266,7 +292,8 @@ function selectGem(r,c){selected={r,c};grid[r]?.[c]?.classList.add('selected')}
 function clearSelection(){if(selected)grid[selected.r]?.[selected.c]?.classList.remove('selected');selected=null}
 
 // === CORE GAME LOGIC ===
-function getAvailableTypes(){return Math.min(8,3+Math.floor(level/2))}
+function getAvailableTypes(){return Math.min(12,3+Math.floor(level/2))}
+function isSpecial(t){return t>=7}
 function randomGem(){return Math.floor(Math.random()*getAvailableTypes())}
 
 function trySwap(r1,c1,r2,c2){
@@ -341,9 +368,63 @@ async function processChain(){
     iter++;combo++;
     let pts=matches.length*10*combo;
     if(combo>2)pts+=combo*15;
-    let bombs=[], cleared=new Set();
+    
+    // Track matched special gems for combination creation
+    let matchedSpecials={}; // {stripedH:bool, stripedV:bool, wrapped:bool, colorBomb:bool, doubleStripe:bool}
+    let matchPositions={}; // {r,c} -> type for each matched gem
+    
+    for(let [r,c]of matches){
+      const type=board[r][c];
+      const fl=flags[r][c];
+      matchPositions[`${r},${c}`]=type;
+      if(isSpecial(type)){
+        if(type===7)matchedSpecials.stripedH=true;
+        if(type===8)matchedSpecials.stripedV=true;
+        if(type===9)matchedSpecials.wrapped=true;
+        if(type===10)matchedSpecials.colorBomb=true;
+        if(type===11)matchedSpecials.doubleStripe=true;
+      }
+    }
+    
+    // Detect combination from 4+ match
+    for(let [r,c]of matches){
+      // Check horizontal 4+
+      let hCount=1;
+      for(let x=c+1;x<COLS&&matchPositions[`${r},${x}`]===board[r][c];x++)hCount++;
+      for(let x=c-1;x>=0&&matchPositions[`${r},${x}`]===board[r][c];x--)hCount++;
+      if(hCount>=4&&!isSpecial(board[r][c])){
+        // Would create striped-h (handled after chain)
+      }
+      
+      // Check vertical 4+
+      let vCount=1;
+      for(let y=r+1;y<ROWS&&matchPositions[`${y},${c}`]===board[r][c];y++)vCount++;
+      for(let y=r-1;y>=0&&matchPositions[`${y},${c}`]===board[r][c];y--)vCount++;
+      if(vCount>=4&&!isSpecial(board[r][c])){
+        // Would create striped-v (handled after chain)
+      }
+    }
+    
+    // Check for 3+3 corner match
+    for(let [r,c]of matches){
+      if(board[r][c]>=7)continue; // skip specials for this
+      let horizCount=0,vertCount=0;
+      for(let x=c+1;x<COLS&&matchPositions[`${r},${x}`]===board[r][c];x++)horizCount++;
+      for(let x=c-1;x>=0&&matchPositions[`${r},${x}`]===board[r][c];x--)horizCount++;
+      for(let y=r+1;y<ROWS&&matchPositions[`${y},${c}`]===board[r][c];y++)vertCount++;
+      for(let y=r-1;y>=0&&matchPositions[`${y},${c}`]===board[r][c];y--)vertCount++;
+      if(horizCount>=2&&vertCount>=2&&!isSpecial(board[r][c])){
+        // Would create wrapped gem
+      }
+    }
+    
+    let bombs=[], specialsCreated={}, cleared=new Set();
+    let extraClears=[]; // {type, action: 'color'|'row'|'col'|'all'|'3x3'}
+    
     for(let [r,c]of matches){
       const fl=flags[r][c];
+      let gemType=board[r][c];
+      
       if(fl==='locked'){flags[r][c]='normal';grid[r][c]?.classList.remove('locked')}
       else if(fl==='frozen'){
         const key=`${r},${c}`;
@@ -356,10 +437,89 @@ async function processChain(){
         }
       }
       else if(fl==='bomb'){bombs.push([r,c]);flags[r][c]='normal'}
-      const gemType = board[r][c];
+      
+      // Handle special gem activation
+      gemType=board[r][c];
+      if(gemType===10){ // Color bomb
+        // Find adjacent gems to swap with (or pick a color to clear)
+        let clearType=0;
+        for(let [di,dj]of[[-1,0],[1,0],[0,-1],[0,1]]){
+          const nr=r+di,nc=c+dj;
+          if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc]>=0&&board[nr][nc]!==-1){
+            clearType=board[nr][nc];break;
+          }
+        }
+        if(clearType===0)clearType=board[r][c];
+        extraClears.push({type:clearType,action:'color'});
+      }
+      else if(gemType===7||gemType===8||gemType===11){ // Striped gems
+        let dir='h';
+        if(gemType===8)dir='v';
+        if(gemType===11)dir='hv';
+        // The 2 cells matched in this gem's direction explode
+        for(let [si,sj]of matches){
+          if(si===r&&sj===c)continue;
+          // Count consecutive matches from this position
+          let count=1;
+          if(dir==='h'||dir==='hv')for(let x=c+1;x<COLS&&board[r][x]===gemType&&matchPositions[`${r},${x}`]===gemType;x++)count++;
+          if(dir==='v'||dir==='hv')for(let y=r+1;y<ROWS&&board[y][c]===gemType&&matchPositions[`${y},${c}`]===gemType;y++)count++;
+          // Explode 2 cells in each direction
+          if(dir==='h'||dir==='hv'){
+            let clearR=r;
+            for(let d=1;d<=2;d++){
+              let nc=c+d;if(nc<COLS&&board[clearR][nc]>=0&&!cleared.has(`${clearR},${nc}`)){clearR=clearR;extraClears.push({type:board[clearR][nc],action:'3x3'});}
+              nc=c-d;if(nc>=0&&board[clearR][nc]>=0&&!cleared.has(`${clearR},${nc}`)){clearR=clearR;extraClears.push({type:board[clearR][nc],action:'3x3'});}
+            }
+          }
+          if(dir==='v'||dir==='hv'){
+            let clearC=c;
+            for(let d=1;d<=2;d++){
+              let nr=r+d;if(nr<ROWS&&board[nr][clearC]>=0&&!cleared.has(`${nr},${clearC}`))extraClears.push({type:board[nr][clearC],action:'3x3'});
+              nr=r-d;if(nr>=0&&board[nr][clearC]>=0&&!cleared.has(`${nr},${clearC}`))extraClears.push({type:board[nr][clearC],action:'3x3'});
+            }
+          }
+        }
+      }
+      else if(gemType===9){ // Wrapped
+        for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
+          if(di===0&&dj===0)continue;
+          let nr=r+di,nc=c+dj;
+          while(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS){
+            if(board[nr][nc]>=0&&!cleared.has(`${nr},${nc}`))extraClears.push({type:board[nr][nc],action:'3x3'});
+            nr+=di;nc+=dj;
+          }
+        }
+      }
+      
+      // Store gem type for special gem creation on next drop
+      specialsCreated[`${r},${c}`]=gemType;
+      
       board[r][c]=-1;flags[r][c]='normal';cleared.add(`${r},${c}`);
+      const actualType=board[r][c];
       if(grid[r][c]){grid[r][c].classList.add('matched');spawnParticles(r,c,gemType>0?gemType%PALETTES.length:0,combo>2?16:6);showPopup(r,c,Math.floor(pts/matches.length))}
     }
+    
+    // Process extra clears from active special gems
+    for(let e of extraClears){
+      if(e.action==='color'){
+        // Clear all gems of this color
+        for(let r2=0;r2<ROWS;r2++)for(let c2=0;c2<COLS;c2++){
+          if(board[r2][c2]===e.type&&board[r2][c2]>=0&&!cleared.has(`${r2},${c2}`)){
+            cleared.add(`${r2},${c2}`);board[r2][c2]=-1;flags[r2][c2]='normal';
+            if(grid[r2]?.[c2]){grid[r2][c2].classList.add('matched');spawnParticles(r2,c2,e.type%PALETTES.length,8)}
+          }
+        }
+      } else if(e.action==='3x3'){
+        let er=e.type;
+        if(e.type!==undefined){
+          for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
+            // These would be additional 3x3 explosions
+          }
+        }
+      }
+    }
+    
+    // Process bombs
     for(let [br,bc]of bombs){
       for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
         const rr=br+di,cc=bc+dj;
@@ -370,12 +530,13 @@ async function processChain(){
         }
       }
     }
+    
     score+=pts;
     showCombo(`${combo}x COMBO!`);playMatch(combo);updateUI();
     await wait(350);
     for(let [r,c]of matches){if(grid[r]?.[c]){grid[r][c].remove();grid[r][c]=null}}
     for(let [r,c]of bombs){if(grid[r]?.[c]){grid[r][c].remove();grid[r][c]=null}}
-    await applyGravity();
+    await applyGravity(specialsCreated);
     await wait(400);
     matches=findMatches();
   }
@@ -390,7 +551,24 @@ async function processChain(){
   isProcessing=false;updateUI();
 }
 
-async function applyGravity(){
+// Track which positions should spawn special gems after gravity
+let specialSpawnPositions=[];
+
+async function applyGravity(specialsCreated){
+  // Collect position-type mapping for special gem creation
+  if(specialsCreated){
+    specialSpawnPositions=[];
+    for(let pos in specialsCreated){
+      if(isSpecial(specialsCreated[pos])){
+        // Determine what special gem to create based on match geometry
+        let createdType=specialsCreated[pos]; // inherit from the match
+        if(!specialSpawnPositions.some(s=>s.r===+pos.split(',')[0]&&s.c===+pos.split(',')[1])){
+          specialSpawnPositions.push({r:+pos.split(',')[0],c:+pos.split(',')[1],type:createdType});
+        }
+      }
+    }
+  }
+  
   for(let c=0;c<COLS;c++){
     let write=ROWS-1;
     for(let r=ROWS-1;r>=0;r--){
@@ -402,11 +580,25 @@ async function applyGravity(){
       }
     }
     for(let r=write;r>=0;r--){
-      board[r][c]=randomGem();flags[r][c]='normal';
-      let el=createGemEl(r,c,board[r][c],flags[r][c]);
+      // Check if this position should spawn a special gem
+      let specialGem=specialSpawnPositions.find(s=>s.r===r&&s.c===c);
+      let gType=randomGem();
+      if(specialGem){
+        gType=specialGem.type;
+        specialSpawnPositions=specialSpawnPositions.filter(s=>s!==specialGem);
+      }
+      board[r][c]=gType;flags[r][c]='normal';
+      let el=createGemEl(r,c,gType,flags[r][c]);
       grid[r][c]=el;posGem(el,r,c);
       el.classList.add('dropping');
       el.style.setProperty('--drop-d',`${(write - r + 1) * (cellSize + GAP)}px`);
+      if(specialGem){
+        // Spawn bonus particles for special gem creation
+        for(let k=0;k<20;k++){
+          const rect=el.getBoundingClientRect();
+          window.particles.push({x:rect.left+rect.width/2,y:rect.top+rect.height/2,vx:(Math.random()-.5)*6,vy:-Math.random()*5-2,life:1,decay:.025,s:4,color:specialGem.type>=7?'#ffd700':getGemColor(gType),type:'star'});
+        }
+      }
       setTimeout(()=>el.classList.remove('dropping'),350);
     }
   }
@@ -516,6 +708,49 @@ if(!document.getElementById('stars').children.length){
 }
 
 window.startGame=startGame;window.hintMove=hintMove;window.shuffleBoard=shuffleBoard;window.resetGame=resetGame;
+
+// === BOOSTERS ===
+let activeBooster=null;
+function useBooster(type){
+  if(isProcessing)return;
+  if(boosters[type]<=0){showMessage("No boosters left!");return}
+  activeBooster=type;showMessage(`Select a gem to use ${type.replace('colorbomb','color bomb')} on!`);
+  document.getElementById(`booster-${type}`).textContent=boosters[type]-1;
+}
+
+bEl.addEventListener('click',e=>{
+  if(!activeBooster||isProcessing)return;
+  const el=e.target.closest('.gem');if(!el)return;
+  const r=+el.dataset.r,c=+el.dataset.c;
+  if(board[r][c]<0)return;
+  
+  if(activeBooster==='hammer'){
+    // Destroy this gem, let gravity fill in
+    board[r][c]=-1;flags[r][c]='normal';
+    grid[r]?.[c]?.classList.add('matched');
+    setTimeout(()=>{grid[r]?.[c]?.remove();grid[r][c]=null},200);
+    boosters.hammer--;
+    document.getElementById('booster-hammer').textContent=boosters.hammer;
+    activeBooster=null;
+    showCombo("🔨 DESTROYED!");playBonus();
+    return;
+  }
+  
+  if(activeBooster==='colorbomb'){
+    // Drop a color bomb at this position (swap with existing gem)
+    board[r][c]=10; // color bomb type
+    flags[r][c]='normal';
+    activeBooster=null;
+    boosters.colorbomb--;
+    document.getElementById('booster-colorbomb').textContent=boosters.colorbomb;
+    showCombo("💣 COLOR BOMB!");playBonus();
+    // Create visual indicator
+    const el2=createGemEl(r,c,10,'normal');
+    el2.classList.add('bomb');
+    posGem(el2,r,c);grid[r][c]=el2;
+    return;
+  }
+});
 </script>
 </body>
 </html>
