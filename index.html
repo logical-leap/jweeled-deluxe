@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>💎 Jeweled Deluxe</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:linear-gradient(135deg,#0a0a2e,#1a1a4e,#0d0d3d);display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui,sans-serif;overflow:hidden;touch-action:manipulation}
+  #game-container{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:480px}
+  #header{display:flex;gap:12px;width:100%;padding:0 8px}
+  .stat-box{background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px 14px;text-align:center;backdrop-filter:blur(10px);flex:1}
+  .stat-label{color:rgba(255,255,255,.5);font-size:10px;text-transform:uppercase;letter-spacing:2px}
+  .stat-value{color:#fff;font-size:22px;font-weight:800}
+  #score-value{color:#ffd700;text-shadow:0 0 15px rgba(255,215,0,.6)}
+  #level-value{color:#00d4ff;text-shadow:0 0 15px rgba(0,212,255,.5)}
+  #moves-value{color:#ff6b6b;text-shadow:0 0 15px rgba(255,107,107,.5)}
+  #target-bar{width:100%;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:4px;display:none}
+  #target-fill{height:100%;background:linear-gradient(90deg,#00d4ff,#ffd700);transition:width .4s;border-radius:3px}
+  #board-wrapper{position:relative;padding:6px;background:linear-gradient(145deg,rgba(255,255,255,.15),rgba(255,255,255,.03));border-radius:16px;border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1)}
+  #board{position:relative;width:100%;aspect-ratio:1;background:rgba(0,0,0,.25);border-radius:12px;overflow:hidden}
+  .gem{position:absolute;border-radius:14px;cursor:pointer;will-change:transform,opacity;z-index:1;transition:transform .15s ease,opacity .2s ease}
+  .gem-inner{width:90%;height:90%;border-radius:12px;position:relative;overflow:hidden;box-shadow:inset 0 -4px 8px rgba(0,0,0,.4),inset 0 4px 8px rgba(255,255,255,.25)}
+  .gem-inner::before{content:'';position:absolute;top:8%;left:12%;width:45%;height:35%;background:linear-gradient(180deg,rgba(255,255,255,.7),transparent);border-radius:50%;filter:blur(3px);z-index:2}
+  .gem-inner::after{content:'';position:absolute;inset:0;background:linear-gradient(133deg,transparent 40%,rgba(255,255,255,.15) 50%,transparent 60%);background-size:200% 200%;animation:shimmer 3s linear infinite;z-index:1}
+  @keyframes shimmer{0%{background-position:200% 200%}100%{background-position:-200% -200%}}
+  .gem.selected{z-index:10}
+  .gem.selected .gem-inner{box-shadow:inset 0 -4px 8px rgba(0,0,0,.4),inset 0 4px 8px rgba(255,255,255,.3),0 0 25px rgba(255,255,255,.6)}
+  .gem.selected::after{content:'';position:absolute;inset:-4px;border-radius:16px;border:2px solid rgba(255,255,255,.9);animation:pulse 0.8s ease-in-out infinite;z-index:20}
+  @keyframes pulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+  .gem .gem-select-indicator{display:none;position:absolute;inset:-4px;border-radius:16px;transform:scale(1.15);pointer-events:none;z-index:25}
+  .gem.selected .gem-select-indicator{display:block}
+  .gem.matched{animation:pop .45s ease-out forwards;pointer-events:none}
+  @keyframes pop{0%{transform:scale(1);opacity:1}40%{transform:scale(1.3);opacity:.9}100%{transform:scale(0);opacity:0}}
+  .gem.dropping{animation:drop .35s cubic-bezier(.2,.6,.3,1)}
+  @keyframes drop{0%{transform:translateY(var(--drop-d))}65%{transform:translateY(0)}85%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+  .gem.hint{animation:glow 1.2s ease-in-out infinite}
+  @keyframes glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.7) drop-shadow(0 0 10px rgba(255,255,255,.8))}}
+  .gem.locked{filter:grayscale(.7) brightness(.6)}
+  .gem.locked::after{content:'🔒';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(0,0,0,.5);border-radius:14px}
+  .gem.frozen{border:3px solid rgba(200,230,255,.9)}
+  .gem.frozen::before{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(150,200,255,.3))}
+  .gem.frozen::after{content:'❄';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(255,255,255,.9);text-shadow:0 2px 4px rgba(0,0,0,.5)}
+  .gem.bomb{animation:spin 1.5s linear infinite}
+  @keyframes spin{0%{filter:hue-rotate(0) brightness(1.1)}50%{filter:hue-rotate(180deg) brightness(1.6)}100%{filter:hue-rotate(360deg) brightness(1.1)}}
+  .gem-special::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+  .gem-striped-h .gem-special{width:110%;height:6px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);top:50%}
+  .gem-striped-v .gem-special{width:6px;height:110%;background:linear-gradient(180deg,transparent,rgba(255,255,255,.9),transparent);left:50%}
+  .gem-wrapped .gem-special{width:100%;height:100%;background:radial-gradient(circle,transparent 40%,rgba(255,255,255,.3) 70%);border-radius:50%}
+  #particles-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50}
+  #combo-display{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-size:48px;font-weight:900;color:#ffd700;text-shadow:0 0 30px rgba(255,215,0,.9),0 0 60px rgba(255,215,0,.5);pointer-events:none;opacity:0;transition:all .3s}
+  #controls{display:flex;gap:10px;margin-top:6px}
+  .btn{background:linear-gradient(145deg,rgba(255,255,255,.15),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.2);color:white;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:all .2s}
+  .btn:hover{background:linear-gradient(145deg,rgba(255,255,255,.25),rgba(255,255,255,.1));transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.3)}
+  .btn:active{transform:translateY(0)}
+  #message{color:rgba(255,255,255,.6);font-size:12px;text-align:center;min-height:18px}
+  .stars{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:-1}
+  .star{position:absolute;width:2px;height:2px;background:white;border-radius:50%;animation:twinkle var(--d) ease-in-out infinite;opacity:0}
+  @keyframes twinkle{0%,100%{opacity:0}50%{opacity:var(--o)}}
+  .score-popup{position:absolute;font-weight:800;font-size:20px;color:#ffd700;text-shadow:0 0 12px rgba(255,215,0,.9),0 2px 4px rgba(0,0,0,.6);pointer-events:none;animation:float .9s ease-out forwards}
+  @keyframes float{0%{transform:translateY(0) scale(.6);opacity:0}25%{transform:translateY(-15px) scale(1.3);opacity:1}100%{transform:translateY(-70px) scale(.8);opacity:0}}
+  #start-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(10px)}
+  #start-overlay h1{color:#ffd700;font-size:32px;margin-bottom:15px;text-shadow:0 0 30px rgba(255,215,0,.6)}
+  #start-overlay p{color:rgba(255,255,255,.7);margin-bottom:25px;max-width:300px;text-align:center;line-height:1.5}
+  .start-btn{background:linear-gradient(145deg,#ffd700,#ff9500);border:none;color:#1a1a2e;padding:14px 32px;border-radius:12px;cursor:pointer;font-size:18px;font-weight:800;letter-spacing:1px;box-shadow:0 8px 25px rgba(255,215,0,.4);transition:transform .2s}
+  .start-btn:hover{transform:scale(1.05)}
+</style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <h1>💎 Jeweled Deluxe</h1>
+  <p>Click/tap to select, tap adjacent to swap. Or drag to swap.<br>Clear goals to advance levels & unlock new gems!</p>
+  <button class="start-btn" onclick="startGame()">PLAY</button>
+</div>
+
+<canvas id="particles-canvas"></canvas>
+<div id="combo-display" role="status" aria-live="polite"></div>
+<div class="stars" id="stars" aria-hidden="true"></div>
+
+<div id="game-container">
+  <div id="header">
+    <div class="stat-box"><div class="stat-label">Score</div><div class="stat-value" id="score-value" aria-live="polite">0</div></div>
+    <div class="stat-box"><div class="stat-label">Level</div><div class="stat-value" id="level-value" aria-live="polite">1</div></div>
+    <div class="stat-box"><div class="stat-label">Moves</div><div class="stat-value" id="moves-value" aria-live="polite">30</div></div>
+  </div>
+  <div id="target-bar"><div id="target-fill"></div></div>
+  <div id="board-wrapper"><div id="board" role="grid" aria-label="Match-3 game board"></div></div>
+  <div id="message">Click a gem, then tap an adjacent gem to swap!</div>
+  <div id="controls">
+    <button class="btn" onclick="hintMove()">💡 Hint</button>
+    <button class="btn" onclick="shuffleBoard()">🔀 Shuffle</button>
+    <button class="btn" onclick="resetGame()">🔄 New</button>
+  </div>
+</div>
+
+<script>
+const ROWS=8, COLS=8, GAP=3;
+let board=[], flags=[], grid=[], cellSize=0;
+let score=0, level=1, moves=30, combo=0, targetScore=2000;
+let isProcessing=false, selected=null;
+let dragStart=null, dragged=false;
+let frozenHits=new Map();
+let levelObjective='score';
+let objectiveCount=0;
+
+const PALETTES = [
+  ['#ff4757','#ff6b81'], ['#2ed573','#7bed9f'], ['#1e90ff','#70a1ff'],
+  ['#ffa502','#ffbe76'], ['#a55eea','#cd84f1'], ['#ff6b9d','#ff9eb5'],
+  ['#ffd700','#fff8dc'], ['#00d4ff','#d4f1ff']
+];
+const SHAPES = [
+  'M20 2 L38 20 L20 38 L2 20 Z',
+  'M20 4 A16 16 0 1 1 20 36 A16 16 0 1 1 20 4',
+  'M8 8 L32 8 L32 32 L8 32 Z',
+  'M20 4 L36 32 L4 32 Z',
+  'M20 2 L24 15 L38 15 L27 24 L31 38 L20 29 L9 38 L13 24 L2 15 L16 15 Z',
+  'M20 2 L36 11 L36 29 L20 38 L4 29 L4 11 Z'
+];
+
+// === AUDIO ===
+let audioCtx=null;
+function getAudio(){if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
+function playTone(freq,type='sine',dur=.15,vol=.2,amp=true){
+  const c=getAudio(),o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,c.currentTime);
+  if(amp)o.frequency.exponentialRampToValueAtTime(freq*.5,c.currentTime+dur);
+  g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);
+  o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+dur);
+}
+function playMatch(c){playTone(400+c*80,'square',.2,.15);setTimeout(()=>playTone((400+c*80)*1.25,'sine',.25,.12),60)}
+function playSwap(){playTone(300,'sine',.08,.12)}
+function playSelect(){playTone(500,'sine',.05,.08)}
+function playBonus(){[0,80,160,240].forEach((d,i)=>setTimeout(()=>playTone(600+i*100,'triangle',.2,.15),d))}
+function playError(){playTone(150,'sawtooth',.15,.1)}
+function playLevelUp(){[0,100,200,300].forEach((d,i)=>setTimeout(()=>playTone(400+i*150,'square',.25,.15),d))}
+function playBomb(){playTone(80,'sawtooth',.4,.25);playTone(120,'square',.35,.2)}
+
+// === PARTICLES ===
+const cvs=document.getElementById('particles-canvas'), ctx=cvs.getContext('2d');
+cvs.width=window.innerWidth;cvs.height=window.innerHeight;
+window.addEventListener('resize',()=>{cvs.width=innerWidth;cvs.height=innerHeight});
+window.particles=[];
+function animParticles(){
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  for(let i=window.particles.length-1;i>=0;i--){
+    const p=window.particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life-=p.decay;
+    if(p.life<=0){window.particles.splice(i,1);continue}
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.color;
+    if(p.type==='circle'){ctx.beginPath();ctx.arc(p.x,p.y,p.s*p.life,0,Math.PI*2);ctx.fill()}
+    else{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.life*6);ctx.fillRect(-p.s*p.life/2,-p.s*p.life/2,p.s*p.life,p.s*p.life);ctx.restore()}
+  }
+  ctx.globalAlpha=1;requestAnimationFrame(animParticles);
+}animParticles();
+
+function getGemColor(t){return PALETTES[t%PALETTES.length][0]}
+function spawnParticles(r,c,type,count=12){
+  const el=grid[r]?.[c];if(!el)return;
+  const rect=el.getBoundingClientRect();
+  const cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,col=getGemColor(type);
+  for(let i=0;i<count;i++){
+    const a=Math.PI*2/count*i+Math.random()*.6,spd=2.5+Math.random()*4;
+    window.particles.push({x:cx,y:cy,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-2.5,life:1,decay:.018+Math.random()*.025,s:3+Math.random()*5,color:col,type:Math.random()>.4?'circle':'star'});
+  }
+}
+
+// === UI ===
+function showCombo(t){
+  const e=document.getElementById('combo-display');e.textContent=t;e.style.opacity='1';e.style.transform='translate(-50%,-50%) scale(1.6)';
+  setTimeout(()=>{e.style.opacity='0';e.style.transform='translate(-50%,-50%) scale(.7)'},900);
+}
+function showPopup(r,c,pts){
+  const el=grid[r]?.[c];if(!el)return;
+  const p=document.createElement('div');p.className='score-popup';p.textContent=`+${pts}`;
+  p.style.left=parseInt(el.style.transform.split(',')[0])+cellSize/2-18+'px';
+  p.style.top=parseInt(el.style.transform.split(',')[1])+'px';
+  document.getElementById('board').appendChild(p);setTimeout(()=>p.remove(),900);
+}
+function updateUI(){
+  document.getElementById('score-value').textContent=score.toLocaleString();
+  document.getElementById('level-value').textContent=level;
+  document.getElementById('moves-value').textContent=moves;
+  document.getElementById('target-fill').style.width=Math.min(100,(score/targetScore)*100)+'%';
+  document.getElementById('target-bar').style.display=level>=1?'block':'none';
+}
+function wait(ms){return new Promise(r=>setTimeout(r,ms))}
+function showMessage(t){document.getElementById('message').textContent=t}
+
+// === BOARD INIT ===
+function resize(){
+  const s=Math.min(480,innerWidth-32);
+  document.getElementById('board').style.width=s+'px';
+  document.getElementById('board').style.height=s+'px';
+  cellSize=(s-GAP*(COLS-1))/COLS;
+}
+function posGem(el,r,c){el.style.transform=`translate(${c*(cellSize+GAP)}px,${r*(cellSize+GAP)}px)`}
+
+function createGemEl(r,c,type,flag){
+  const gem=document.createElement('div');gem.className='gem';
+  if(flag==='locked')gem.classList.add('locked');
+  if(flag==='frozen')gem.classList.add('frozen');
+  if(flag==='bomb')gem.classList.add('bomb');
+  gem.dataset.r=r;gem.dataset.c=c;gem.dataset.type=String(type);
+  const col=PALETTES[type%PALETTES.length];
+  gem.style.background=`radial-gradient(circle at 30% 30%, ${col[1]}, ${col[0]} 70%)`;
+  gem.style.boxShadow=`0 4px 12px ${col[0]}66, inset 0 2px 6px rgba(255,255,255,.25)`;
+  gem.innerHTML=`<div class="gem-inner" style="background:linear-gradient(135deg,${col[0]},${col[1]})"><svg viewBox="0 0 40 40" style="width:60%;height:60%;position:relative;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))"><path d="${SHAPES[type]}" fill="rgba(255,255,255,.35)" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/></svg><div class="gem-select-indicator"></div></div>`;
+  return gem;
+}
+
+function generateBoard(){
+  board=[];flags=[];grid=[];
+  for(let r=0;r<ROWS;r++){board[r]=new Array(COLS).fill(-1);flags[r]=new Array(COLS).fill('normal');grid[r]=new Array(COLS).fill(null)}
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    board[r][c]=randomGem();
+    if(level>=4&&Math.random()<.15)flags[r][c]='locked';
+    if(level>=6&&Math.random()<.1)flags[r][c]='frozen';
+    if(level>=8&&Math.random()<.05)flags[r][c]='bomb';
+  }
+  let m=findMatches();
+  while(m.length){for(let[r,c]of m){board[r][c]=randomGem();flags[r][c]='normal'}m=findMatches()}
+}
+
+function renderBoard(){
+  const b=document.getElementById('board');b.innerHTML='';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const el=createGemEl(r,c,board[r][c],flags[r][c]);
+    posGem(el,r,c);b.appendChild(el);grid[r][c]=el;
+  }
+}
+
+// === INPUT ===
+const bEl=document.getElementById('board');
+bEl.addEventListener('pointerdown',e=>{
+  if(isProcessing)return;e.preventDefault();
+  const el=e.target.closest('.gem');if(!el)return;
+  dragStart={x:e.clientX,y:e.clientY,r:+el.dataset.r,c:+el.dataset.c};
+  dragged=false;selectGem(+el.dataset.r,+el.dataset.c);playSelect();
+});
+window.addEventListener('pointermove',e=>{
+  if(!dragStart||isProcessing)return;
+  const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;
+  if(Math.abs(dx)>25||Math.abs(dy)>25){
+    dragged=true;
+    let nr=dragStart.r,nc=dragStart.c;
+    if(Math.abs(dx)>Math.abs(dy))nc+=dx>0?1:-1;else nr+=dy>0?1:-1;
+    if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)trySwap(dragStart.r,dragStart.c,nr,nc);
+    dragStart=null;clearSelection();
+  }
+});
+window.addEventListener('pointerup',e=>{
+  if(!dragStart||isProcessing)return;e.preventDefault();
+  if(!dragged){
+    const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;
+    if(Math.abs(dx)<15&&Math.abs(dy)<15){
+      if(selected&&(dragStart.r!==selected.r||dragStart.c!==selected.c)){
+        if(Math.abs(dragStart.r-selected.r)+Math.abs(dragStart.c-selected.c)===1)trySwap(selected.r,selected.c,dragStart.r,dragStart.c);
+        else clearSelection();
+      }else clearSelection();
+    }
+  }
+  dragStart=null;
+});
+
+function selectGem(r,c){selected={r,c};grid[r]?.[c]?.classList.add('selected')}
+function clearSelection(){if(selected)grid[selected.r]?.[selected.c]?.classList.remove('selected');selected=null}
+
+// === CORE GAME LOGIC ===
+function getAvailableTypes(){return Math.min(8,3+Math.floor(level/2))}
+function randomGem(){return Math.floor(Math.random()*getAvailableTypes())}
+
+function trySwap(r1,c1,r2,c2){
+  if(isProcessing)return;
+  if(Math.abs(r1-r2)+Math.abs(c1-c2)!==1) return;
+  if(board[r1][c1]<0||board[r2][c2]<0||flags[r1][c1]==='locked'||flags[r2][c2]==='locked'){isProcessing=false;clearSelection();return}
+  moves--;
+  isProcessing=true;
+  playSwap();
+  [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+  [flags[r1][c1],flags[r2][c2]]=[flags[r2][c2],flags[r1][c1]];
+  [grid[r1][c1],grid[r2][c2]]=[grid[r2][c2],grid[r1][c1]];
+  grid[r1][c1].dataset.r=r2;grid[r1][c1].dataset.c=c2;
+  grid[r2][c2].dataset.r=r1;grid[r2][c2].dataset.c=c1;
+  posGem(grid[r1][c1],r2,c2);posGem(grid[r2][c2],r1,c1);
+  const matches = findMatches();
+  if(matches.length === 0) {
+    setTimeout(()=>{
+      [board[r1][c1],board[r2][c2]]=[board[r2][c2],board[r1][c1]];
+      [flags[r1][c1],flags[r2][c2]]=[flags[r2][c2],flags[r1][c1]];
+      [grid[r1][c1],grid[r2][c2]]=[grid[r2][c2],grid[r1][c1]];
+      grid[r1][c1].dataset.r=r1;grid[r1][c1].dataset.c=c1;
+      grid[r2][c2].dataset.r=r2;grid[r2][c2].dataset.c=c2;
+      posGem(grid[r1][c1],r1,c1);posGem(grid[r2][c2],r2,c2);
+      showMessage("Invalid move!");
+      isProcessing=false;clearSelection();
+    },300);
+    return;
+  }
+  clearSelection();
+  processChain();
+}
+
+function findMatches(){
+  const m=new Set();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-2;c++){
+    if(board[r][c]>=0&&board[r][c]===board[r][c+1]&&board[r][c]===board[r][c+2]){
+      let l=3;while(c+l<COLS&&board[r][c+l]>=0&&board[r][c+l]===board[r][c])l++;
+      for(let i=0;i<l;i++)m.add(`${r},${c+i}`);
+    }
+  }
+  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-2;r++){
+    if(board[r][c]>=0&&board[r][c]===board[r+1][c]&&board[r][c]===board[r+2][c]){
+      let l=3;while(r+l<ROWS&&board[r+l][c]>=0&&board[r+l][c]===board[r][c])l++;
+      for(let i=0;i<l;i++)m.add(`${r+i},${c}`);
+    }
+  }
+  return Array.from(m).map(s=>s.split(',').map(Number));
+}
+
+function findMatchesCopy(b,f){
+  const m=new Set();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-2;c++){
+    if(b[r][c]>=0&&b[r][c]===b[r][c+1]&&b[r][c]===b[r][c+2]){
+      let l=3;while(c+l<COLS&&b[r][c+l]>=0&&b[r][c+l]===b[r][c])l++;
+      for(let i=0;i<l;i++)m.add(`${r},${c+i}`);
+    }
+  }
+  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-2;r++){
+    if(b[r][c]>=0&&b[r][c]===b[r+1][c]&&b[r][c]===b[r+2][c]){
+      let l=3;while(r+l<ROWS&&b[r+l][c]>=0&&b[r+l][c]===b[r][c])l++;
+      for(let i=0;i<l;i++)m.add(`${r+i},${c}`);
+    }
+  }
+  return Array.from(m).map(s=>s.split(',').map(Number));
+}
+
+async function processChain(){
+  let matches=findMatches();
+  let iter=0;
+  while(matches.length>0&&iter<15){
+    iter++;combo++;
+    let pts=matches.length*10*combo;
+    if(combo>2)pts+=combo*15;
+    let bombs=[], cleared=new Set();
+    for(let [r,c]of matches){
+      const fl=flags[r][c];
+      if(fl==='locked'){flags[r][c]='normal';grid[r][c]?.classList.remove('locked')}
+      else if(fl==='frozen'){
+        const key=`${r},${c}`;
+        if(!frozenHits.has(key))frozenHits.set(key,0);
+        frozenHits.set(key,frozenHits.get(key)+1);
+        if(frozenHits.get(key)<2){
+          flags[r][c]='frozen';grid[r][c]?.classList.add('frozen');cleared.delete(`${r},${c}`)
+        } else {
+          flags[r][c]='normal';grid[r][c]?.classList.remove('frozen')
+        }
+      }
+      else if(fl==='bomb'){bombs.push([r,c]);flags[r][c]='normal'}
+      const gemType = board[r][c];
+      board[r][c]=-1;flags[r][c]='normal';cleared.add(`${r},${c}`);
+      if(grid[r][c]){grid[r][c].classList.add('matched');spawnParticles(r,c,gemType>0?gemType%PALETTES.length:0,combo>2?16:6);showPopup(r,c,Math.floor(pts/matches.length))}
+    }
+    for(let [br,bc]of bombs){
+      for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
+        const rr=br+di,cc=bc+dj;
+        if(rr>=0&&rr<ROWS&&cc>=0&&cc<COLS&&board[rr][cc]>=0){
+          const gemType=board[rr][cc];
+          cleared.add(`${rr},${cc}`);board[rr][cc]=-1;flags[rr][cc]='normal';
+          if(grid[rr]?.[cc]){grid[rr][cc].classList.add('matched');spawnParticles(rr,cc,gemType%PALETTES.length,6);showPopup(rr,cc,Math.floor(pts/bombs.length))}
+        }
+      }
+    }
+    score+=pts;
+    showCombo(`${combo}x COMBO!`);playMatch(combo);updateUI();
+    await wait(350);
+    for(let [r,c]of matches){if(grid[r]?.[c]){grid[r][c].remove();grid[r][c]=null}}
+    for(let [r,c]of bombs){if(grid[r]?.[c]){grid[r][c].remove();grid[r][c]=null}}
+    await applyGravity();
+    await wait(400);
+    matches=findMatches();
+  }
+  if(score>=targetScore){
+    level++;targetScore+=2000;moves+=Math.max(3,8-Math.floor(level/3));
+    selected=null;
+    showCombo(`🌟 LEVEL ${level}!`);playLevelUp();showMessage(`New gems & challenges unlocked!`);
+    generateBoard();renderBoard();isProcessing=false;updateUI();return;
+  }
+  if(moves<=0){showCombo(`Game Over! Score: ${score}`);playError();setTimeout(resetGame,3000);isProcessing=false;updateUI();return}
+  if(!hasMoves()){showMessage("No moves! Shuffling...");await wait(600);await doShuffle();isProcessing=false;updateUI();return}
+  isProcessing=false;updateUI();
+}
+
+async function applyGravity(){
+  for(let c=0;c<COLS;c++){
+    let write=ROWS-1;
+    for(let r=ROWS-1;r>=0;r--){
+      if(board[r][c]>=0){
+        board[write][c]=board[r][c];flags[write][c]=flags[r][c];
+        if(grid[r][c]){grid[write][c]=grid[r][c];grid[r][c]=null;posGem(grid[write][c],write,c)}
+        if(write!==r){board[r][c]=-1;flags[r][c]='normal'}
+        write--;
+      }
+    }
+    for(let r=write;r>=0;r--){
+      board[r][c]=randomGem();flags[r][c]='normal';
+      let el=createGemEl(r,c,board[r][c],flags[r][c]);
+      grid[r][c]=el;posGem(el,r,c);
+      el.classList.add('dropping');
+      el.style.setProperty('--drop-d',`${(write - r + 1) * (cellSize + GAP)}px`);
+      setTimeout(()=>el.classList.remove('dropping'),350);
+    }
+  }
+}
+
+function hasMoves(){
+  const bCopy=board.map(row=>[...row]);
+  const fCopy=flags.map(row=>[...row]);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(bCopy[r][c]<0||fCopy[r][c]==='locked')continue;
+    if(c+1<COLS){
+      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){board=bCopy;return true}
+      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+    }
+    if(r+1<ROWS){
+      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){board=bCopy;return true}
+      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+    }
+  }
+  return false;
+}
+
+async function doShuffle(){
+  isProcessing=true;
+  let gems=[],fls=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){gems.push(board[r][c]);fls.push(flags[r][c])}
+  for(let i=gems.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[gems[i],gems[j]]=[gems[j],gems[i]];[fls[i],fls[j]]=[fls[j],fls[i]]}
+  let idx=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){board[r][c]=gems[idx];flags[r][c]=fls[idx];idx++}
+  selected=null;
+  renderBoard();
+  let attempts=0;
+  while(!hasMoves()&&attempts<50){
+    for(let i=gems.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[gems[i],gems[j]]=[gems[j],gems[i]]}
+    idx=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){board[r][c]=gems[idx];flags[r][c]='normal';idx++}
+    renderBoard();attempts++;
+  }
+  isProcessing=false;showMessage("Board shuffled!");return board;
+}
+
+async function shuffleBoard(){
+  if(isProcessing)return;
+  showCombo("🔀 Shuffling!");
+  await doShuffle();
+  updateUI();
+}
+
+function hintMove(){
+  if(isProcessing)return;
+  const bCopy=board.map(row=>[...row]);
+  const fCopy=flags.map(row=>[...row]);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(bCopy[r][c]<0||fCopy[r][c]==='locked')continue;
+    if(c+1<COLS){
+      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){
+        [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
+        [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+        grid[r]?.[c]?.classList.add('hint');grid[r]?.[c+1]?.classList.add('hint');showMessage("Hint: Swap these!");
+        setTimeout(()=>{grid[r]?.[c]?.classList.remove('hint');grid[r]?.[c+1]?.classList.remove('hint')},2000);return;
+      }
+      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];[fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+    }
+    if(r+1<ROWS){
+      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
+      [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){
+        [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
+        [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+        grid[r]?.[c]?.classList.add('hint');grid[r+1]?.[c]?.classList.add('hint');showMessage("Hint: Swap these!");
+        setTimeout(()=>{grid[r]?.[c]?.classList.remove('hint');grid[r+1]?.[c]?.classList.remove('hint')},2000);return;
+      }
+      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];[fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+    }
+  }
+  showMessage("No moves! Shuffling...");
+  doShuffle().then(()=>updateUI());
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){grid[r]?.[c]?.classList.remove('hint');}
+}
+
+function resetGame(){
+  score=0;level=1;moves=30;combo=0;targetScore=2000;isProcessing=false;clearSelection();
+  frozenHits.clear();selected=null;
+  updateUI();showMessage("Click a gem, then tap an adjacent gem to swap!");
+  generateBoard();renderBoard();window.particles=[];
+}
+
+let resizeListenerAdded=false;
+function startGame(){
+  document.getElementById('start-overlay').style.display='none';
+  getAudio();resize();resetGame();
+  if(!resizeListenerAdded){
+    window.addEventListener('resize',()=>{resize();for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(grid[r]?.[c])posGem(grid[r][c],r,c)});
+    resizeListenerAdded=true;
+  }
+}
+
+if(!document.getElementById('stars').children.length){
+  const starsCont=document.getElementById('stars');
+  for(let i=0;i<60;i++){const s=document.createElement('div');s.className='star';s.style.left=Math.random()*100+'%';s.style.top=Math.random()*100+'%';s.style.setProperty('--d',(2+Math.random()*4)+'s');s.style.setProperty('--o',(0.3+Math.random()*0.7));s.style.animationDelay=Math.random()*4+'s';starsCont.appendChild(s)}
+}
+
+window.startGame=startGame;window.hintMove=hintMove;window.shuffleBoard=shuffleBoard;window.resetGame=resetGame;
+</script>
+</body>
+</html>
