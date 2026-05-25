@@ -129,16 +129,12 @@ let dragStart=null, dragged=false;
 let frozenHits=new Map();
 let levelObjective='score';
 let objectiveCount=0;
-<<<<<<< HEAD
-// === Jelly and wall systems (Gardenscapes/Royal Kingdom inspired) ===
 let jellyMap=[];  // jellyMap[r][c] = 'ice' or undefined
 let wallMap=[];   // wallMap[r][c] = crack level 0-2 or undefined
 let wallElementMap=[];
 let collectedGems=0;
 let jellyCount=0;
 let objectiveTarget=0;
-=======
->>>>>>> 44676e9 (✨ Add special gems & booster system (features from Candy Crush/Bejeweled research))
 // Special gems: striped-h=7, striped-v=8, wrapped=9, color-bomb=10, double-striped=11
 let boosters={hammer:0,shuffle:2,colorbomb:1}; // player power-ups
 let lastMatchedGems=[]; // track gems for combination detection
@@ -155,12 +151,8 @@ const SPECIAL_PALETTE = [
   ['#1aff1a','#6eff66'], // 8: striped-v (green)
   ['#ff1aff','#ff66ef'], // 9: wrapped (pink)
   ['#ff1aff','#ffd700'], // 10: color bomb (rainbow)
-<<<<<<< HEAD
-  ['#ffff1a','#eeee66'], // 11: double-striped (gold)
   undefined, undefined, undefined, undefined, undefined, undefined, undefined // 12, 13, 14: normal extra types
-=======
   ['#ffff1a','#eeee66']  // 11: double-striped (gold)
->>>>>>> 44676e9 (✨ Add special gems & booster system (features from Candy Crush/Bejeweled research))
 ];
 const SPECIAL_SHAPES = [
   undefined, undefined, undefined, undefined,
@@ -171,7 +163,6 @@ const SPECIAL_SHAPES = [
   'M20 2 L24 15 L38 15 L27 24 L31 38 L20 29 L9 38 L13 24 L2 15 L16 15 Z', // color bomb: star
   'M20 2 L38 20 L20 38 L2 20 M10 10 L10 30 M30 10 L30 30 M10 10 L30 10 M10 30 L30 30', // double-striped: diamond + cross
   'M20 2 L38 20 L20 38 L2 20 M14 20 L26 20 M20 14 L20 26' // wrapped-hv: diamond + cross
-<<<<<<< HEAD
 ];
 
 // Normal gem SVG shapes
@@ -189,8 +180,6 @@ const SHAPES = [
   'M20 2 L24 15 L38 15 L27 24 L31 38 L20 29 L9 38 L13 24 L2 15 L16 15 Z', // color bomb (10)
   'M20 2 L38 20 L20 38 L2 20 M10 10 L10 30 M30 10 L30 30 M10 10 L30 10 M10 30 L30 30', // double-striped (11)
   'M20 2 L38 20 L20 38 L2 20 M14 20 L26 20 M20 14 L20 26' // wrapped-hv (extra)
-=======
->>>>>>> 44676e9 (✨ Add special gems & booster system (features from Candy Crush/Bejeweled research))
 ];
 
 // === AUDIO ===
@@ -690,8 +679,6 @@ async function processChain(){
       specialsCreated[`${r},${c}`]=gemType;
       
       board[r][c]=-1;flags[r][c]='normal';cleared.add(`${r},${c}`);
-<<<<<<< HEAD
-      // Update objective tracking
       if(levelObjective==='collection')collectedGems++;
       
       // Check adjacent walls for cracking (Gardenscapes)
@@ -709,9 +696,6 @@ async function processChain(){
           }
         }
       }
-      
-=======
->>>>>>> 44676e9 (✨ Add special gems & booster system (features from Candy Crush/Bejeweled research))
       const actualType=board[r][c];
       if(grid[r][c]){grid[r][c].classList.add('matched');spawnParticles(r,c,gemType>0?gemType%PALETTES.length:0,combo>2?16:6);showPopup(r,c,Math.floor(pts/matches.length))}
     }
