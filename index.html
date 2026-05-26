@@ -812,16 +812,14 @@ function hasMoves(){
     if(c+1<COLS){
       [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
       [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
-      if(findMatchesCopy(bCopy,fCopy).length>0){board=bCopy;return true}
-      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];
-      [fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){fCopy=null;return true}
+      [bCopy[r][c],bCopy[r][c+1]]=[bCopy[r][c+1],bCopy[r][c]];[fCopy[r][c],fCopy[r][c+1]]=[fCopy[r][c+1],fCopy[r][c]];
     }
     if(r+1<ROWS){
       [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
       [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
-      if(findMatchesCopy(bCopy,fCopy).length>0){board=bCopy;return true}
-      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];
-      [fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
+      if(findMatchesCopy(bCopy,fCopy).length>0){fCopy=null;return true}
+      [bCopy[r][c],bCopy[r+1][c]]=[bCopy[r+1][c],bCopy[r][c]];[fCopy[r][c],fCopy[r+1][c]]=[fCopy[r+1][c],fCopy[r][c]];
     }
   }
   return false;
