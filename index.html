@@ -169,8 +169,8 @@ const SPECIAL_SHAPES = [
   undefined               // 14: reserved (key gem)
 ];
 
-// Sanity: ensure SPECIAL_SHAPES and SPECIAL_PALETTE have truthy entries for known specials (7-11)
-(function(){const types=[7,8,9,10,11];for(const t of types){if(!SPECIAL_PALETTE[t])console.error(`Missing SPECIAL_PALETTE[${t}]`);if(!SPECIAL_SHAPES[t])console.error(`Missing SPECIAL_SHAPES[${t}]`)}})();
+// Sanity: ensure SPECIAL_SHAPES and SPECIAL_PALETTE have truthy entries for all known specials (7-14)
+(function(){const types=[7,8,9,10,11,12,13,14];for(const t of types){if(SPECIAL_PALETTE[t]&&!SPECIAL_SHAPES[t])console.error(`Missing SPECIAL_SHAPES[${t}]`);if(SPECIAL_SHAPES[t]&&!SPECIAL_PALETTE[t])console.error(`Missing SPECIAL_PALETTE[${t}]`)}})();
 
 // Normal gem SVG shapes
 const SHAPES = [
