@@ -169,8 +169,8 @@ const SPECIAL_SHAPES = [
   undefined               // 14: reserved (key gem)
 ];
 
-// Sanity: ensure SPECIAL_SHAPES and SPECIAL_PALETTE have truthy entries for all known specials (7-14)
-(function(){const types=[7,8,9,10,11,12,13,14];for(const t of types){if(SPECIAL_PALETTE[t]&&!SPECIAL_SHAPES[t])console.error(`Missing SPECIAL_SHAPES[${t}]`);if(SPECIAL_SHAPES[t]&&!SPECIAL_PALETTE[t])console.error(`Missing SPECIAL_PALETTE[${t}]`)}})();
+// Runtime sanity: assert correct index alignment for specials 7-14 (especially type 11 double-striped)
+(function(){const requiredTruth=[7,8,9,10,11];const expectedPad=7;for(const t of requiredTruth){if(!SPECIAL_PALETTE[t]) console.error(`SPECIAL_PALETTE[${t}] must be truthy`);if(!SPECIAL_SHAPES[t]) console.error(`SPECIAL_SHAPES[${t}] must be truthy (double-striped at 11)`);}const padOk=SPECIAL_PALETTE.slice(0,expectedPad).every(v=>v===undefined)&&SPECIAL_SHAPES.slice(0,expectedPad).every(v=>v===undefined);if(!padOk) console.error('Pre-special padding must be undefined');})();
 
 // Normal gem SVG shapes
 const SHAPES = [
