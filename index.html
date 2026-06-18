@@ -169,8 +169,13 @@ const SPECIAL_SHAPES = [
   undefined               // 14: reserved (key gem)
 ];
 
-// Runtime sanity: assert correct index alignment for specials 7-14 (especially type 11 double-striped)
-(function(){const requiredTruth=[7,8,9,10,11];const expectedPad=7;for(const t of requiredTruth){if(!SPECIAL_PALETTE[t]) console.error(`SPECIAL_PALETTE[${t}] must be truthy`);if(!SPECIAL_SHAPES[t]) console.error(`SPECIAL_SHAPES[${t}] must be truthy (double-striped at 11)`);}const padOk=SPECIAL_PALETTE.slice(0,expectedPad).every(v=>v===undefined)&&SPECIAL_SHAPES.slice(0,expectedPad).every(v=>v===undefined);if(!padOk) console.error('Pre-special padding must be undefined');})();
+// Runtime sanity: verify index alignment for specials 7-14 (especially type 11 double-striped)
+(function(){
+  const active=7,activeMax=11,pad=7;
+  for(let t=active;t<=activeMax;t++){if(!SPECIAL_PALETTE[t])console.error(`PALETTE[${t}] must be truthy`);if(!SPECIAL_SHAPES[t])console.error(`SHAPES[${t}] must be truthy (double-striped at 11)`);}
+  for(let t=activeMax+1;t<=14;t++){if(SPECIAL_PALETTE[t]!==undefined)console.error(`PALETTE[${t}] reserved`);if(SPECIAL_SHAPES[t]!==undefined)console.error(`SHAPES[${t}] reserved`);}
+  if(!SPECIAL_PALETTE.slice(0,pad).every(v=>v===undefined))console.error('PALETTE pre-padding corrupt');
+  if(!SPECIAL_SHAPES.slice(0,pad).every(v=>v===undefined))console.error('SHAPES pre-padding corrupt');})();
 
 // Normal gem SVG shapes
 const SHAPES = [
